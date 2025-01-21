@@ -31,8 +31,18 @@ function formatContent(content) {
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
 
+      // Markdown formatting for bold, italic, and bold-italic
+      const withMarkdownFormatting = escaped
+          // Bold: **text** or __text__
+          .replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>')
+          // Italic: *text* or _text_
+          .replace(/(\*|_)(.*?)\1/g, '<em>$2</em>')
+          // Bold-Italic: ***text*** or ___text___ or **_text_** or __*text*__
+          .replace(/(\*\*\*|___)(.*?)\1/g, '<strong><em>$2</em></strong>')
+          .replace(/(\*\*_|__\*)(.*?)(_\*\*|\*__)/g, '<strong><em>$2</em></strong>');
+
       // Restore code blocks
-      const withCodeRestored = escaped.replace(/\x1BCODE(\d+)\x1B/g, (_, index) => {
+      const withCodeRestored = withMarkdownFormatting.replace(/\x1BCODE(\d+)\x1B/g, (_, index) => {
           const code = codeBlocks[index];
           return `<pre><code>${code}</code></pre>`;
       });
@@ -156,36 +166,38 @@ async function sendMessage(message) {
         appendMessage(`Error: ${error.message}`, false);
     }
 }
-
 // Event listeners with debouncing
 let isSending = false;
+
 sendBtn.addEventListener('click', async () => {
-    if (isSending) return;
-    isSending = true;
+    if (isSending) return; // Prevent multiple clicks while sending
+    isSending = true; // Set flag to indicate sending is in progress
     
     const message = chatInput.value.trim();
-    if (!message) return;
+    if (!message) {
+        isSending = false; // Reset the flag if the message is empty
+        return;
+    }
 
-    chatInput.value = '';
-    appendMessage(message, true);
+    chatInput.value = ''; // Clear the input field
+    appendMessage(message, true); // Append the user's message to the chat
     
     try {
-        await sendMessage(message);
+        await sendMessage(message); // Send the message
     } catch (error) {
         console.error('Send Error:', error);
-        appendMessage('Failed to send message', false);
+        appendMessage('Failed to send message', false); // Show error message in chat
+    } finally {
+        isSending = false; // Reset the flag after sending (success or failure)
     }
-    
-    isSending = false;
 });
 
 chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
+        e.preventDefault(); // Prevent default behavior (e.g., newline)
+        sendBtn.click(); // Trigger the send button click
     }
 });
-
 // Initialize chat
 window.addEventListener('DOMContentLoaded', () => {
     appendMessage('Hello! How can I assist you today?', false);
